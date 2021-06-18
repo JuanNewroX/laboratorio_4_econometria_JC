@@ -12,6 +12,8 @@ library(tidyverse)
 library(ggplot2)
 library(dplyr)
 library(corrplot)
+library(reshape2) 
+library(caret)
 
 ```
 
@@ -50,7 +52,7 @@ for (name in colnames(df_houses_prices)){
 ```{r Verificar datos}
 
 colNas <- colnames(df_houses_prices)[!complete.cases(t(df_houses_prices))]
-colNas
+colNas %>% head()
 
 ```
 
@@ -60,7 +62,7 @@ colNas
 ```{r porcentaje NAS}
 
 incompleteData <- df_houses_prices %>% select(colNas)
-incompleteData
+incompleteData %>% head()
 
 ```
 ### Calculo porcentaje NA
@@ -69,8 +71,11 @@ porcentajeNAS <- as.data.frame(apply(incompleteData, MARGIN = 2, function(col) m
 
 colnames(porcentajeNAS ) <- c("porcentaje")
 
-porcentajeNAS
+porcentajeNAS %>% head()
 ```
+
+
+### Filtrando los que tengan menos de 0.05 de NAS
 ```{r}
 
 procesables <- porcentajeNAS %>% filter(
@@ -80,59 +85,127 @@ procesables
 
 ```
 
+### Calculando la inputacion variable MasVnrArea
 
-### Correlacion de variables
 ```{r}
-
-cor(df_houses_prices %>% select(MSSubClass, LotFrontage, X1stFlrSF, TotalBsmtSF, GrLivArea, GarageArea, MasVnrArea, BsmtFinSF1, BsmtUnfSF, SalePrice))
+incompleteData <- incompleteData %>% mutate(
+  MasVnrArea_media = ifelse(is.na(MasVnrArea), mean(MasVnrArea, na.rm =  TRUE), MasVnrArea ),
+  MasVnrArea_mediana = ifelse(is.na(MasVnrArea), median(MasVnrArea, na.rm =  TRUE), MasVnrArea )
+) 
+incompleteData %>% head()
 
 ```
-```{r}
-corrplot(cor(df_houses_prices %>% select(MSSubClass, LotFrontage, X1stFlrSF, TotalBsmtSF, GrLivArea, GarageArea, MasVnrArea, BsmtFinSF1, BsmtUnfSF, SalePrice))
-, method = "number", type = "upper")
-```
-```{r}
-for (var_x in colnames(df_houses_prices)){
-  for (var_y in colnames(df_houses_prices)){
-    if (var_x != var_y){
-      
-      print(df_houses_prices %>% select("X" = var_x, "Y" =  var_y) %>% 
-        ggplot(aes(x=X, y=Y)) + 
-        geom_point(col = "blue") + ggtitle(paste0(var_y, " vs " ,var_x )) +
-        theme_minimal())
-      }
-  }
-  
-}
+### Graficando la distribucion del efecto de las inputaciones variable MasVnrArea
 
+```{r}
+incompleteData %>% ggplot(
+  aes(x=MasVnrArea, y=..density..) 
+) + geom_density(color = "blue", lwd = 1) +
+  geom_density(aes(x = MasVnrArea_media, y = ..density..), col = "red" , lwd = 1) + 
+  geom_density(aes(x = MasVnrArea_mediana, y = ..density..), col = "green" , lwd = 1) + theme_minimal()
 ```
 
-### Modelo
+### Verificando la inputacion de una variable que tiene mas de 0.05  de NA  LotFrontage
+
 ```{r}
-
-lm1 <- df_houses_prices %>% lm(formula = SalePrice ~ GrLivArea)
-summary(lm1)
-
-lm2 <- df_houses_prices %>% lm(formula = X1stFlrSF ~ TotalBsmtSF)
-summary(lm2)
-
-lm3 <- df_houses_prices %>% lm(formula = SalePrice ~ GrLivArea + GarageArea)
-summary(lm3)
-
-lm4 <- df_houses_prices %>% lm(formula = SalePrice ~ .)
-summary(lm4)
-
+df_houses_prices <- df_houses_prices %>% mutate(
+  LotFrontage_media = ifelse(is.na(LotFrontage), mean(LotFrontage, na.rm =  TRUE), LotFrontage ),
+  LotFrontage_mediana = ifelse(is.na(LotFrontage), median(LotFrontage, na.rm =  TRUE), LotFrontage )
+) 
 ```
 ```{r}
+df_houses_prices %>% ggplot(
+  aes(x=LotFrontage, y=..density..) 
+) + geom_density(color = "blue", lwd = 1) +
+  geom_density(aes(x = LotFrontage_media, y = ..density..), col = "red" , lwd = 1) + 
+  geom_density(aes(x = LotFrontage_mediana, y = ..density..), col = "green" , lwd = 1) + theme_minimal()
+```
 
-df_houses_prices %>% ggplot(aes(x=GrLivArea, y=SalePrice)) + geom_point(col="red") +
-  geom_abline(slope = 0.05, intercept = 7, col='light blue', alpha=0.2)
+### Analisis de distribucion MasVnrArea
 
-df_houses_prices %>% ggplot(aes(x=X1stFlrSF, y=TotalBsmtSF)) + geom_point(col="red") +
-  geom_abline(slope = 0.05, intercept = 7, col='light blue', alpha=0.2)
+```{r}
+
+sub_df_houses_prices<- incompleteData %>%  
+  select(MasVnrArea, MasVnrArea_media, MasVnrArea_mediana)
+
+data_long<-melt(sub_df_houses_prices)
+
+ggplot(data_long, aes(x = variable, y = value)) +           
+  geom_boxplot()
+
+```
+
+### Podemos concluir que el porcentaje de NA es bajo no altera la distribucion para la variable MasVnrArea
+
+
+### Analisis de distribucion LotFrontage
+
+```{r}
+
+sub_df_houses_prices<- df_houses_prices %>%  
+  select(LotFrontage, LotFrontage_media, LotFrontage_mediana)
+
+data_long<-melt(sub_df_houses_prices)
+
+ggplot(data_long, aes(x = variable, y = value)) +           
+  geom_boxplot()
+
+```
+### Podemos observar que graficamente usando boxplot no se ve ninguna alteracion con la imputacion de NA sobre la variable LotFrontage sin embargo en la grafica de densidad si se puede observar de mejor maneja
+
+### Revision de datos NA
+
+```{r}
+
+NAsCount<-as.data.frame(apply(sub_df_houses_prices, 2, 
+                    function(col)sum(is.na(col))))
+colnames(NAsCount)<-c("Cantidad")
+NAsCount
+
+NAsCount/nrow(sub_df_houses_prices)
 
 
 ```
+
+### Codificacion de variables
+#### Buscando las variables
+```{r}
+
+
+table(df_houses_prices$LotShape)
+table(df_houses_prices$Heating)
+table(df_houses_prices$ExterQual)
+
+
+```
+#### Asignacion de variables nuevas para categorizar
+```{r}
+
+OHE <- dummyVars("~.",df_houses_prices %>% select(LotShape, Heating, ExterQual))
+
+OHE_df <- data.frame(predict(OHE, newdata = df_houses_prices %>% select(LotShape, Heating, ExterQual)))
+
+OHE_df %>% head()
+
+
+
+```
+
+### Frecuency encoding
+```{r}
+
+OHE <- dummyVars("~.",df_houses_prices)
+
+OHE_df <- data.frame(predict(OHE, newdata = df_houses_prices))
+
+OHE_df %>% head()
+
+```
+
+
+
+
+
 
 
 
