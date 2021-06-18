@@ -14,6 +14,7 @@ library(dplyr)
 library(corrplot)
 library(reshape2) 
 library(caret)
+library(gridExtra)
 
 ```
 
@@ -191,7 +192,7 @@ OHE_df %>% head()
 
 ```
 
-### Frecuency encoding
+
 ```{r}
 
 OHE <- dummyVars("~.",df_houses_prices)
@@ -201,6 +202,66 @@ OHE_df <- data.frame(predict(OHE, newdata = df_houses_prices))
 OHE_df %>% head()
 
 ```
+
+#Transformación de Variables
+
+```{r}
+df_houses_prices %>%
+  ggplot(aes(x=GrLivArea))+
+  geom_histogram(color="white", fill="blue", alpha=0.8)+
+  theme_minimal()
+
+qqnorm(df_houses_prices$GrLivArea, pch = 1, frame = FALSE)
+qqline(df_houses_prices$GrLivArea, col = "red", lwd = 2)
+
+df_houses_prices$GrLivArea_log<-log(df_houses_prices$GrLivArea)
+qqnorm(df_houses_prices$GrLivArea_log, pch = 1, frame = FALSE)
+qqline(df_houses_prices$GrLivArea_log, col = "red", lwd = 2)
+
+
+df_houses_prices$GrLivArea_inv<-1/(df_houses_prices$GrLivArea)
+qqnorm(df_houses_prices$GrLivArea_inv, pch = 1, frame = FALSE)
+qqline(df_houses_prices$GrLivArea_inv, col = "red", lwd = 2)
+
+df_houses_prices$GrLivArea_pow2<-(df_houses_prices$GrLivArea)^2
+qqnorm(df_houses_prices$GrLivArea_pow2, pch = 1, frame = FALSE)
+qqline(df_houses_prices$GrLivArea_pow2, col = "red", lwd = 2)
+
+```
+
+### Outliers
+```{r}
+detect_Outliers<-function(df, colname){
+  histPlot<-paste("g1<- df %>%
+    ggplot(aes(x=", colname, "))+
+    geom_histogram(color='white', fill='blue', alpha=0.8)+
+    theme_minimal()")
+  
+  
+  boxPlot<-paste("g2<- df %>%
+    ggplot(aes(y=", colname, "))+
+    geom_boxplot()+
+    theme_minimal()")
+  
+  qqPlot<-paste("g3<- df %>%
+    ggplot(aes(sample=", colname, "))+
+    stat_qq() + stat_qq_line(col='red', lwd=1) + theme_minimal()")
+  
+  plotA<-eval(parse(text=histPlot))
+  plotB<-eval(parse(text=boxPlot))
+  plotC<-eval(parse(text=qqPlot))
+  
+  resultGraph<-"grid.arrange(plotA, plotB, plotC, ncol=3) + theme(aspect.ratio=2/5)"
+  result<-eval(parse(text=resultGraph))
+  return(result)
+}
+
+
+detect_Outliers(df_houses_prices, "GrLivArea")
+
+```
+
+
 
 
 
