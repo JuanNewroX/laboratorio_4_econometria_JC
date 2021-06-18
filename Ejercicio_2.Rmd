@@ -1,0 +1,181 @@
+---
+title: "Ejercicio_2"
+author: "JuanRomero"
+date: "17/6/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(corrplot)
+library(knitr)
+
+```
+
+
+
+
+
+
+#Validación Cruzada y llamado de variables
+```{r}
+K_folds_CV<-function(df, k=10){
+  df<-df[sample(1:nrow(df)), ]
+  total<-nrow(df)
+  foldSize<-(total/k)
+  foldIndexInit<-1
+  salida<-list()
+  
+  for(i in c(1:k)){
+    foldIndexLimit<-i*foldSize
+    index<-c(foldIndexInit: foldIndexLimit)
+    dataTest<-df[index, ]
+    dataTrain<-df[-index, ]
+    foldIndexInit<-foldIndexLimit + 1
+    
+    tempLista<-list(train=dataTrain, test=dataTest)
+    salida[[i]]<-tempLista
+  }
+  return(salida)
+}
+
+
+strModelGenerator<-function(df, Y, limit){
+  Y.var<-colnames(df)[Y]
+  X.vars<-colnames(df)[-Y]
+  modelList<-list()
+  combLimit<-length(X.vars)
+  modelsToCreate<-combn(X.vars, limit)
+  nModel<-ncol(modelsToCreate)
+  strModel<-""
+  modelNo<-1
+  for(i in c(1:nModel)){
+    arrModel<-modelsToCreate[ ,i]
+    strModel<-paste(arrModel, collapse = "+")
+    modelList[[modelNo]]<-strModel
+    modelNo<-modelNo + 1
+    strModel<-""
+  }
+  return(modelList)
+}
+
+```
+
+
+### Funcion Forward seleccion 
+```{r}
+
+modelSelectorForwardSelection <- function(df, index_col_predecir, k){
+  #df = read.csv("house_prices.csv")
+  df <- df %>% select(-Heating) 
+  #k <- 10
+  #index_col_predecir <- 14
+  col_predecir<-colnames(df)[index_col_predecir] 
+  col_independientes <- colnames(df)[-index_col_predecir]
+  modelList <- list()
+  strBase<-paste("lm(formula=", col_predecir, "~", sep = "")
+
+  dataList<-K_folds_CV(df, k)
+  outputModels<-list()
+  listModelTmp<-c()
+  listModel <- c()
+  listModelRMSE <- c()
+  listModelCols <- c()
+  
+  promRMSE<-c()
+  RMSE<-0
+  
+  outputRMSE<-c() 
+  continuar <- 1
+  indexModel <- 1
+  index<-1
+  
+  while(continuar == 1){
+    #for(i in c(1:ncol(df[, -index_col_predecir]))){
+    
+    if(indexModel == 1)
+      baseModel<-strModelGenerator(df, index_col_predecir, 1)
+    else{
+      index_col_predecir_new <- append(listModelCols, index_col_predecir)
+      #print(index_col_predecir_new)
+      baseModelTmp<-strModelGenerator(df, index_col_predecir_new, 1)
+      
+      baseModel <- paste(baseModelTmp , "+", listModel[indexModel-1]) 
+      #print(baseModel)
+      
+    }
+    #else{
+    #  index_col_predecir_new <- c(index_col_predecir, unlist(strsplit(listModel[indexModel - 1]  , "\\+")))
+    #  baseModel<-strModelGenerator(df, index_col_predecir, 1)
+    #}
+    listModelTmp<- baseModel
+    #print(baseModel)
+    for(j in c(1:length(baseModel))){
+      for(k in c(1:length(dataList))){
+        strModel<-paste(strBase, baseModel[[j]], ", data=dataList[[",k,"]]$train)")
+        print(strModel)
+        outputModels[[index]]<-eval(parse(text=strModel))
+        dfTest<-dataList[[k]]$test
+        y.estimate<-predict(object = outputModels[[index]], newdata=dfTest)
+        RMSE<-sqrt((sum((dfTest[, index_col_predecir] - y.estimate)^2))/nrow(dfTest))
+        outputRMSE<-c(outputRMSE, RMSE)
+        index<-index+1
+        strModel<-""
+      }
+      promRMSE<-c(promRMSE, mean(outputRMSE))
+      outputRMSE<-c()
+    }
+    
+    
+    minRMSE<-which.min(promRMSE)
+    bestModelStr<-listModelTmp[[minRMSE]]
+    
+    if(length(listModel) > 0){
+      if(min(promRMSE, na.rm = TRUE) < listModelRMSE[indexModel-1]){
+        print(bestModelStr)
+        listModel[indexModel] <- bestModelStr
+        listModelCols[indexModel] <- minRMSE
+        listModelRMSE[indexModel] <- min(promRMSE,  na.rm = TRUE)
+      }
+      else{
+        indexModel <- length(col_independientes)
+      }
+    }
+    else{
+        listModel[indexModel] <- bestModelStr
+        listModelCols[indexModel] <- minRMSE
+        listModelRMSE[indexModel] <- min(promRMSE,  na.rm = TRUE)
+    }
+    
+    print(paste(indexModel, "___________________", bestModelStr, "_____", minRMSE, "_______" , min(promRMSE, na.rm = TRUE)))
+    
+    indexModel <- indexModel + 1
+    if(indexModel > length(col_independientes)){
+      continuar <- 2
+    }
+    promRMSE<-c()
+    RMSE<-0
+    index<-1
+  }
+  listModelFinal <- paste0(col_predecir, "~", listModel)
+  resultados <- data.frame(listModelFinal, listModelRMSE)
+  resultados 
+}
+
+
+```
+
+### Test funcion
+
+```{r Carga de datos}
+df_houses_prices = read.csv("house_prices.csv")
+df_houses_prices %>% head()
+
+modelSelectorForwardSelection(df_houses_prices, 14, 10) %>% kable()
+
+```
+

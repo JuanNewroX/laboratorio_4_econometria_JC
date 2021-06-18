@@ -1,0 +1,35 @@
+modelSelector<-function(df, Y, k){
+  Y.var<-colnames(df)[Y]
+  dataList<-K_folds_CV(df, k)
+  outputRMSE<-c()
+  index<-1
+  outputModels<-list()
+  strBase<-paste("lm(formula=", Y.var, "~", sep = "")
+  listModel<-c()
+  promRMSE<-c()
+  RMSE<-0
+  for(i in c(1:ncol(df[, -Y]))){
+    baseModel<-strModelGen(df, Y, i)
+    listModel<-c(listModel, baseModel)
+    for(j in c(1:length(baseModel))){
+      for(k in c(1:length(dataList))){
+        strModel<-paste(strBase, baseModel[[j]], ", data=dataList[[",k,"]]$train)")
+        outputModels[[index]]<-eval(parse(text=strModel))
+        dfTest<-dataList[[k]]$test
+        y.estimate<-predict(object = outputModels[[index]], newdata=dfTest)
+        RMSE<-sqrt((sum((dfTest[, Y] - y.estimate)^2))/nrow(dfTest))
+        outputRMSE<-c(outputRMSE, RMSE)
+        index<-index+1
+        strModel<-""
+      }
+      promRMSE<-c(promRMSE, mean(outputRMSE))
+      outputRMSE<-c()
+    }
+  }
+  minRMSE<-which.min(promRMSE)
+  bestModelStr<-listModel[[minRMSE]]
+  
+  baseStr<-paste("lm(formula=", Y.var, "~", bestModelStr, ", data=df)")
+  output<-eval(parse(text=baseStr))
+  return(output)
+}

@@ -1,0 +1,345 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+```{r}
+library(ggplot2)
+library(dplyr)
+```
+
+```{r}
+dataset<-read.csv("Advertising.csv")
+dataset<-dataset[ , c(2:5)]
+dataset
+```
+
+```{r}
+summary(dataset)
+```
+
+```{r}
+dataset %>%
+  ggplot(aes(x=TV, y=..density..))+
+  geom_density(col="blue",lwd=1, fill="cyan")+
+  theme_classic()
+```
+```{r}
+dataset %>%
+  ggplot(aes(x=Radio, y=..density..))+
+  geom_density(col="blue",lwd=1,  fill="cyan")+
+  theme_classic()
+```
+```{r}
+dataset %>%
+  ggplot(aes(x=Newspaper, y=..density..))+
+  geom_density(col="blue",lwd=1, fill="cyan")+
+  theme_classic()
+```
+```{r}
+dataset %>%
+  ggplot(aes(x=Sales, y=..density..))+
+  geom_density(col="blue",lwd=1,  fill="cyan")+
+  theme_classic()
+```
+```{r}
+dataset %>%
+  ggplot(aes(x=TV, y=Sales))+
+  geom_point(col="blue")+
+  theme_classic()
+```
+```{r}
+dataset %>%
+  ggplot(aes(x=Newspaper, y=Sales))+
+  geom_point(col="blue")+
+  theme_classic()
+```
+```{r}
+dataset %>%
+  ggplot(aes(x=Radio, y=Sales))+
+  geom_point(col="blue")+
+  theme_classic()
+```
+```{r}
+library(corrplot)
+cor(dataset)
+```
+```{r}
+corrplot(cor(dataset), method = "number", type="upper")
+```
+```{r}
+lm1<-dataset %>%
+  lm(formula = Sales ~ TV)
+lm1
+```
+
+```{r}
+summary(lm1)
+```
+```{r}
+sqrt(0.6119)
+```
+
+
+```{r}
+lm2<-dataset %>%
+  lm(formula = Sales ~ Newspaper)
+summary(lm2)
+```
+```{r}
+lm3<-dataset %>%
+  lm(formula = Sales ~ Radio)
+summary(lm3)
+```
+```{r}
+sqrt(0.332)
+```
+```{r}
+lm4<-dataset %>%
+  lm(formula = Sales ~ TV + Newspaper)
+summary(lm4)
+```
+```{r}
+lm5<-dataset %>%
+  lm(formula = Sales ~ TV + Radio)
+summary(lm5)
+```
+```{r}
+lm6<-dataset %>%
+  lm(formula = Sales ~ TV + Newspaper + Radio)
+summary(lm6)
+```
+
+##Validación
+```{r}
+library(dplyr)
+library(ggplot2)
+
+dataset<-read.csv("Advertising.csv")
+dataset<-dataset[ , c(2:5)]
+```
+
+```{r}
+set.seed(2021)
+index<-sample(1:nrow(dataset), 0.7*nrow(dataset))
+dataTrain<-dataset[index, ]
+dataTest<-dataset[-index, ]
+```
+
+```{r}
+lm1<-dataTrain %>%
+  lm(formula = Sales ~ TV)
+summary(lm1)
+```
+
+```{r}
+#uso de función predict
+a<-c(77.90, 34.67, 90.82)
+sales.predict<-predict(object = lm1, newdata = data.frame(TV=a))
+sales.predict
+```
+
+
+```{r}
+sales.predict<-predict(object = lm1, newdata = dataTest)
+
+RMSE1<-sqrt(sum((dataTest$Sales - sales.predict)^2)/nrow(dataTest))
+RMSE1
+```
+
+```{r}
+lm2<-dataTrain %>%
+  lm(formula = Sales ~ Radio)
+sales.predict2<-predict(object = lm2, newdata = dataTest)
+RMSE2<-sqrt(sum((dataTest$Sales - sales.predict2)^2)/nrow(dataTest))
+
+lm3<-dataTrain %>%
+  lm(formula = Sales ~ Newspaper)
+sales.predict3<-predict(object = lm3, newdata = dataTest)
+RMSE3<-sqrt(sum((dataTest$Sales - sales.predict3)^2)/nrow(dataTest))
+
+lm4<-dataTrain %>%
+  lm(formula = Sales ~ Radio + Newspaper)
+sales.predict4<-predict(object = lm4, newdata = dataTest)
+RMSE4<-sqrt(sum((dataTest$Sales - sales.predict4)^2)/nrow(dataTest))
+
+lm5<-dataTrain %>%
+  lm(formula = Sales ~ TV + Radio)
+sales.predict5<-predict(object = lm5, newdata = dataTest)
+RMSE5<-sqrt(sum((dataTest$Sales - sales.predict5)^2)/nrow(dataTest))
+
+lm6<-dataTrain %>%
+  lm(formula = Sales ~ TV + Newspaper)
+sales.predict6<-predict(object = lm6, newdata = dataTest)
+RMSE6<-sqrt(sum((dataTest$Sales - sales.predict6)^2)/nrow(dataTest))
+
+lm7<-dataTrain %>%
+  lm(formula = Sales ~ .)
+sales.predict7<-predict(object = lm7, newdata = dataTest)
+RMSE7<-sqrt(sum((dataTest$Sales - sales.predict7)^2)/nrow(dataTest))
+```
+
+```{r}
+RMSE.Table<-data.frame(RMSE=c(RMSE1, RMSE2, RMSE3, RMSE4, RMSE5, RMSE6, RMSE7),
+                       Modelo=c("TV", "Radio", "Newspaper", "Radio + Newspaper",
+                                "TV + Radio", "TV + Newspaper", "."))
+RMSE.Table
+```
+#Validación Cruzada
+```{r}
+K_folds_CV<-function(df, k=10){
+  df<-df[sample(1:nrow(df)), ]
+  total<-nrow(df)
+  foldSize<-(total/k)
+  foldIndexInit<-1
+  salida<-list()
+  
+  for(i in c(1:k)){
+    foldIndexLimit<-i*foldSize
+    index<-c(foldIndexInit: foldIndexLimit)
+    dataTest<-df[index, ]
+    dataTrain<-df[-index, ]
+    foldIndexInit<-foldIndexLimit + 1
+    
+    tempLista<-list(train=dataTrain, test=dataTest)
+    salida[[i]]<-tempLista
+  }
+  return(salida)
+}
+
+KFoldsOut<-K_folds_CV(dataset, k=10)
+KFoldsOut[[10]]
+```
+
+```{r}
+arr.rmse<-c()
+for(i in c(1:length(KFoldsOut))){
+  modelo<-lm(formula = Sales ~ TV,
+             data = KFoldsOut[[i]]$train)
+  
+  predicciones<-predict(object = modelo, 
+                        newdata = KFoldsOut[[i]]$test)
+  
+  rmse<-sqrt(sum((KFoldsOut[[i]]$test$Sales - predicciones)^2)/nrow(KFoldsOut[[i]]$test))
+  arr.rmse<-c(arr.rmse, rmse)
+}
+metricaModelo<-mean(arr.rmse)
+metricaModelo
+```
+
+```{r}
+arr.rmse<-c()
+for(i in c(1:length(KFoldsOut))){
+  modelo<-lm(formula = Sales ~ Newspaper,
+             data = KFoldsOut[[i]]$train)
+  
+  predicciones<-predict(object = modelo, 
+                        newdata = KFoldsOut[[i]]$test)
+  
+  rmse<-sqrt(sum((KFoldsOut[[i]]$test$Sales - predicciones)^2)/nrow(KFoldsOut[[i]]$test))
+  arr.rmse<-c(arr.rmse, rmse)
+}
+metricaModelo<-mean(arr.rmse)
+metricaModelo
+```
+```{r}
+arr.rmse<-c()
+for(i in c(1:length(KFoldsOut))){
+  modelo<-lm(formula = Sales ~ TV + Radio,
+             data = KFoldsOut[[i]]$train)
+  
+  predicciones<-predict(object = modelo, 
+                        newdata = KFoldsOut[[i]]$test)
+  
+  rmse<-sqrt(sum((KFoldsOut[[i]]$test$Sales - predicciones)^2)/nrow(KFoldsOut[[i]]$test))
+  arr.rmse<-c(arr.rmse, rmse)
+}
+metricaModelo<-mean(arr.rmse)
+metricaModelo
+```
+
+
+```{r}
+dataset<-read.csv("Advertising.csv")
+dataset<-dataset[ , c(2:5)]
+
+df<-mtcars
+Y<-4
+limit<-5
+
+#inicia funcion
+strModelGenerator<-function(df, Y, limit){
+  Y.var<-colnames(df)[Y]
+  X.vars<-colnames(df)[-Y]
+  modelList<-list()
+  combLimit<-length(X.vars)
+  modelsToCreate<-combn(X.vars, limit)
+  nModel<-ncol(modelsToCreate)
+  strModel<-""
+  modelNo<-1
+  for(i in c(1:nModel)){
+    arrModel<-modelsToCreate[ ,i]
+    strModel<-paste(arrModel, collapse = "+")
+    modelList[[modelNo]]<-strModel
+    modelNo<-modelNo + 1
+    strModel<-""
+  }
+  return(modelList)
+}
+
+strModelGenerator(df, 5, 10)
+```
+
+
+```{r}
+modelSelector<-function(df, Y, k){
+  Y.var<-colnames(df)[Y]
+  dataList<-K_folds_CV(df, k)
+  outputRMSE<-c()
+  index<-1
+  outputModels<-list()
+  strBase<-paste("lm(formula=", Y.var, "~", sep = "")
+  listModel<-c()
+  promRMSE<-c()
+  RMSE<-0
+  for(i in c(1:ncol(df[, -Y]))){
+    baseModel<-strModelGenerator(df, Y, i)
+    listModel<-c(listModel, baseModel)
+    for(j in c(1:length(baseModel))){
+      for(k in c(1:length(dataList))){
+        strModel<-paste(strBase, baseModel[[j]], ", data=dataList[[",k,"]]$train)")
+        outputModels[[index]]<-eval(parse(text=strModel))
+        dfTest<-dataList[[k]]$test
+        y.estimate<-predict(object = outputModels[[index]], newdata=dfTest)
+        RMSE<-sqrt((sum((dfTest[, Y] - y.estimate)^2))/nrow(dfTest))
+        outputRMSE<-c(outputRMSE, RMSE)
+        index<-index+1
+        strModel<-""
+      }
+      promRMSE<-c(promRMSE, mean(outputRMSE))
+      outputRMSE<-c()
+    }
+  }
+  minRMSE<-which.min(promRMSE)
+  bestModelStr<-listModel[[minRMSE]]
+  
+  baseStr<-paste("lm(formula=", Y.var, "~", bestModelStr, ", data=df)")
+  output<-eval(parse(text=baseStr))
+  return(output)
+}
+
+mtcars
+modelSelector(dataset, 4, 10)
+```
+
+```{r}
+Forward Selection - Backward Elimination
+```
+
+```{r}
+
+```
+
+
+
+
+

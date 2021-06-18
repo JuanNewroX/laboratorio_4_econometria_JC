@@ -1,0 +1,138 @@
+---
+title: "Ejercicio_1"
+author: "JuanRomero"
+date: "6/6/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(tidyverse)
+library(ggplot2)
+library(dplyr)
+library(corrplot)
+
+```
+
+```{r Carga de datos}
+df_houses_prices = read.csv("house_prices.csv")
+df_houses_prices %>% head()
+
+```
+### Resumen de datos
+```{r}
+df_houses_prices %>% summary() 
+
+```
+
+### Analisis de las variables 
+
+```{r Analisis de variables}
+for (name in colnames(df_houses_prices)){
+  print(name)
+  print(df_houses_prices %>% select("var" = name) %>% 
+    ggplot(aes(x=var, y=..density..)) + 
+    geom_density(col="magenta", lwd=1, fill = "cyan" ) +
+    theme_minimal())
+  
+}
+```
+
+
+
+
+
+
+## Imputación de data faltante
+### Verificacion de datos faltantes
+
+```{r Verificar datos}
+
+colNas <- colnames(df_houses_prices)[!complete.cases(t(df_houses_prices))]
+colNas
+
+```
+
+
+### Porcentaje de NAS
+
+```{r porcentaje NAS}
+
+incompleteData <- df_houses_prices %>% select(colNas)
+incompleteData
+
+```
+### Calculo porcentaje NA
+```{r}
+porcentajeNAS <- as.data.frame(apply(incompleteData, MARGIN = 2, function(col) mean(is.na(col))))
+
+colnames(porcentajeNAS ) <- c("porcentaje")
+
+porcentajeNAS
+```
+```{r}
+
+procesables <- porcentajeNAS %>% filter(
+  porcentajeNAS < 0.05
+)
+procesables
+
+```
+
+
+### Correlacion de variables
+```{r}
+
+cor(df_houses_prices %>% select(MSSubClass, LotFrontage, X1stFlrSF, TotalBsmtSF, GrLivArea, GarageArea, MasVnrArea, BsmtFinSF1, BsmtUnfSF, SalePrice))
+
+```
+```{r}
+corrplot(cor(df_houses_prices %>% select(MSSubClass, LotFrontage, X1stFlrSF, TotalBsmtSF, GrLivArea, GarageArea, MasVnrArea, BsmtFinSF1, BsmtUnfSF, SalePrice))
+, method = "number", type = "upper")
+```
+```{r}
+for (var_x in colnames(df_houses_prices)){
+  for (var_y in colnames(df_houses_prices)){
+    if (var_x != var_y){
+      
+      print(df_houses_prices %>% select("X" = var_x, "Y" =  var_y) %>% 
+        ggplot(aes(x=X, y=Y)) + 
+        geom_point(col = "blue") + ggtitle(paste0(var_y, " vs " ,var_x )) +
+        theme_minimal())
+      }
+  }
+  
+}
+
+```
+
+### Modelo
+```{r}
+
+lm1 <- df_houses_prices %>% lm(formula = SalePrice ~ GrLivArea)
+summary(lm1)
+
+lm2 <- df_houses_prices %>% lm(formula = X1stFlrSF ~ TotalBsmtSF)
+summary(lm2)
+
+lm3 <- df_houses_prices %>% lm(formula = SalePrice ~ GrLivArea + GarageArea)
+summary(lm3)
+
+lm4 <- df_houses_prices %>% lm(formula = SalePrice ~ .)
+summary(lm4)
+
+```
+```{r}
+
+df_houses_prices %>% ggplot(aes(x=GrLivArea, y=SalePrice)) + geom_point(col="red") +
+  geom_abline(slope = 0.05, intercept = 7, col='light blue', alpha=0.2)
+
+df_houses_prices %>% ggplot(aes(x=X1stFlrSF, y=TotalBsmtSF)) + geom_point(col="red") +
+  geom_abline(slope = 0.05, intercept = 7, col='light blue', alpha=0.2)
+
+
+```
+
+
+

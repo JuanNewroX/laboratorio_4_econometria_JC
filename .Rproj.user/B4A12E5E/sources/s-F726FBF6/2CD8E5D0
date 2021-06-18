@@ -1,0 +1,27 @@
+{
+    "collab_server" : "",
+    "contents" : "",
+    "created" : 1623977523423.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "0",
+    "id" : "2CD8E5D0",
+    "lastKnownWriteTime" : 1623990922,
+    "last_content_update" : 1623990922011,
+    "path" : "C:/Users/CES-UVG/workspace svn-R/Lab_4_Econometria/Ejercicio_2.Rmd",
+    "project_path" : "Ejercicio_2.Rmd",
+    "properties" : {
+        "cursorPosition" : "173,21",
+        "last_setup_crc32" : "F726FBF67961c9cc",
+        "scrollLine" : "169",
+        "tempName" : "Untitled1"
+    },
+    "read_only" : false,
+    "read_only_alternatives" : [
+    ],
+    "relative_order" : 2,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_markdown"
+}

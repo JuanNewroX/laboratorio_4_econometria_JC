@@ -1,0 +1,259 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+```{r}
+library(dplyr)
+library(ggplot2)
+```
+
+
+```{r}
+dataset<-read.csv("train_HP.csv")
+dataset
+```
+```{r}
+colsNA<-colnames(dataset)[!complete.cases(t(dataset))]
+colsNA
+```
+
+```{r}
+GrLivArea_no_NAN<- dataset %>%
+  filter(!is.na(GrLivArea))
+GrLivArea_no_NAN
+```
+
+```{r}
+
+
+incopleteData<-dataset %>%
+  select(colsNA)
+
+porcentajeNA<-as.data.frame(apply(incopleteData, 2, function(col)sum(is.na(col))/length(col)))
+colnames(porcentajeNA)<-c("Porcentaje")
+porcentajeNA
+```
+
+```{r}
+procesables<-porcentajeNA %>%
+  filter(porcentajeNA < 0.05)
+procesables
+```
+```{r}
+dim(dataset)
+```
+```{r}
+CCA<-dataset[ , apply(dataset, 2, function(x) !any(is.na(x)))]
+colnames(CCA)[colnames(CCA) == 'GrLivArea'] <- 'GrLivArea_no_NA'
+CCA
+```
+```{r}
+dataset %>%
+  ggplot(aes(x=GrLivArea))+
+  geom_histogram(color="white", fill="blue", alpha=0.8)+
+  theme_minimal()
+```
+```{r}
+dataset$GrLivArea_Media<-ifelse(dataset$GrLivArea, 
+                                 mean(dataset$GrLivArea, na.rm = T),
+                                 dataset$GrLivArea)
+
+dataset$GrLivArea_Mediana<-ifelse(dataset$GrLivArea, 
+                                 median(dataset$GrLivArea, na.rm = T),
+                                 dataset$GrLivArea)
+
+
+dataset %>%
+  ggplot(aes(x=GrLivArea, y=..density..))+
+  geom_density(color="blue", alpha=0.8)+
+  geom_density(aes(x=GrLivArea_Media, y=..density..), 
+               color="red", alpha=0.8) +
+  geom_density(aes(x=GrLivArea_Mediana, y=..density..), 
+               color="purple", alpha=0.8) +
+  theme_minimal()
+
+```
+```{r}
+install.packages("reshape2")
+library("reshape2") 
+
+subData<- dataset %>%  
+  select(GrLivArea, GrLivArea_Media, GrLivArea_Mediana)
+
+data_long<-melt(subData)
+ggplot(data_long, aes(x = variable, y = value)) +           
+  geom_boxplot()
+```
+
+
+```{r}
+NAsCount<-as.data.frame(apply(subData, 2, 
+                    function(col)sum(is.na(col))))
+colnames(NAsCount)<-c("Cantidad")
+NAsCount
+```
+```{r}
+NAsCount/nrow(subData)
+```
+```{r}
+table(subData$BsmtQual)
+```
+```{r}
+table(dataset$FireplaceQu)
+```
+
+```{r}
+dataset %>%
+  group_by(BsmtQual) %>%
+  summarise(cantidad=n())
+```
+
+```{r}
+dataset %>%
+  group_by(BsmtQual) %>%
+  summarise(cantidad=n()) %>%
+  ggplot(aes(x=reorder(BsmtQual, cantidad), y=cantidad))+
+  geom_bar(stat="identity")+
+  theme_minimal()
+```
+
+#Codificación de Varaibles Categóricas
+```{r}
+library(caret)
+
+dummy <- dummyVars(" ~ .", data=subData)
+newdata <- data.frame(predict(dummy, newdata = subData)) 
+newdata
+```
+
+#Frecuency Encoding
+```{r}
+unique(dataset$Neighborhood)
+```
+```{r}
+FreqImpact<-dataset %>%
+  group_by(Neighborhood) %>%
+  summarise(FreqVal = n(), Density=n()/nrow(dataset)) %>%
+  arrange(-FreqVal)
+FreqImpact
+```
+```{r}
+dataset %>%
+  ggplot(aes(x=Neighborhood, y=SalePrice))+
+  geom_boxplot()+
+  theme(aspect.ratio=2/5) +
+  theme(axis.text.x = element_text(angle = 90))+
+  scale_fill_brewer(palette="BuPu")
+```
+```{r}
+merge(dataset, FreqImpact, by.x="Neighborhood", by.y="Neighborhood") %>%
+  select(Neighborhood, FreqVal)
+```
+```{r}
+merge(dataset, FreqImpact, by.x="Neighborhood", by.y="Neighborhood") %>%
+  select(Neighborhood, Density)
+```
+
+#Feature Scaling
+```{r}
+library (MASS)
+dataTemp<-Boston
+summary(dataTemp)
+```
+```{r}
+dataTemp %>%
+  ggplot(aes(x=nox, y=..density..))+
+  geom_density(col="green")+
+  geom_density(aes(x=age, y=..density..), col="red")+
+  geom_density(aes(x=dis, y=..density..), col="purple") +
+  theme_minimal()
+```
+```{r}
+dataTemp$nox_std<-(dataTemp$nox - mean(dataTemp$nox))/sd(dataTemp$nox)
+dataTemp$age_std<-(dataTemp$age - mean(dataTemp$age))/sd(dataTemp$age)
+dataTemp$dis_std<-(dataTemp$dis - mean(dataTemp$dis))/sd(dataTemp$dis)
+
+dataTemp %>%
+  ggplot(aes(x=nox_std, y=..density..))+
+  geom_density(col="green")+
+  geom_density(aes(x=age_std, y=..density..), col="red")+
+  geom_density(aes(x=dis_std, y=..density..), col="purple")+
+  theme_minimal()
+
+```
+
+#Transformación de Variables
+
+```{r}
+dataset %>%
+  ggplot(aes(x=GrLivArea))+
+  geom_histogram(color="white", fill="blue", alpha=0.8)+
+  theme_minimal()
+```
+```{r}
+install.packages("car")
+library(car)
+qqPlot(dataset$GrLivArea)
+```
+
+```{r}
+qqnorm(dataset$GrLivArea, pch = 1, frame = FALSE)
+qqline(dataset$GrLivArea, col = "red", lwd = 2)
+```
+```{r}
+dataset$GrLivArea_log<-log(dataset$GrLivArea)
+qqnorm(dataset$GrLivArea_log, pch = 1, frame = FALSE)
+qqline(dataset$GrLivArea_log, col = "red", lwd = 2)
+```
+```{r}
+dataset$GrLivArea_inv<-1/(dataset$GrLivArea)
+qqnorm(dataset$GrLivArea_inv, pch = 1, frame = FALSE)
+qqline(dataset$GrLivArea_inv, col = "red", lwd = 2)
+```
+```{r}
+dataset$GrLivArea_pow2<-(dataset$GrLivArea)^2
+qqnorm(dataset$GrLivArea_pow2, pch = 1, frame = FALSE)
+qqline(dataset$GrLivArea_pow2, col = "red", lwd = 2)
+```
+
+##Outliers
+```{r}
+install.packages("gridExtra")
+library(gridExtra)
+
+detect_Outliers<-function(df, colname){
+  histPlot<-paste("g1<- df %>%
+    ggplot(aes(x=", colname, "))+
+    geom_histogram(color='white', fill='blue', alpha=0.8)+
+    theme_minimal()")
+  
+  
+  boxPlot<-paste("g2<- df %>%
+    ggplot(aes(y=", colname, "))+
+    geom_boxplot()+
+    theme_minimal()")
+  
+  qqPlot<-paste("g3<- df %>%
+    ggplot(aes(sample=", colname, "))+
+    stat_qq() + stat_qq_line(col='red', lwd=1) + theme_minimal()")
+  
+  plotA<-eval(parse(text=histPlot))
+  plotB<-eval(parse(text=boxPlot))
+  plotC<-eval(parse(text=qqPlot))
+  
+  resultGraph<-"grid.arrange(plotA, plotB, plotC, ncol=3) + theme(aspect.ratio=2/5)"
+  result<-eval(parse(text=resultGraph))
+  return(result)
+}
+
+
+detect_Outliers(dataset, "GrLivArea")
+```
+```{r}
+
+```
+
+
+
+
